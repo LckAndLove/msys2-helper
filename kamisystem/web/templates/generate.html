@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+
+{% block title %}批量生成 - 卡密授权管理系统{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-plus-circle"></i> 批量生成卡密
+                </h5>
+            </div>
+            
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>提示：</strong>
+                    生成的卡密格式为：<code>前缀-随机代码</code>，例如：<code>VIP-ABCD123456</code>
+                </div>
+                
+                <form method="POST" id="generate-form">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="prefix" class="form-label">
+                                    卡密前缀 <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="prefix" 
+                                       name="prefix" 
+                                       placeholder="例如：VIP, PREMIUM, BASIC" 
+                                       required
+                                       maxlength="16"
+                                       pattern="[A-Za-z0-9_-]+"
+                                       title="只能包含字母、数字、下划线和短横线">
+                                <div class="form-text">
+                                    用于标识卡密类型，只能包含字母、数字、下划线和短横线
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="count" class="form-label">
+                                    生成数量 <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="count" 
+                                       name="count" 
+                                       placeholder="输入要生成的数量" 
+                                       required
+                                       min="1"
+                                       max="10000"
+                                       value="10">
+                                <div class="form-text">
+                                    最多可生成 10,000 个卡密
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="code_length" class="form-label">
+                                    代码长度
+                                </label>
+                                <select class="form-select" id="code_length" name="code_length">
+                                    <option value="6">6 位</option>
+                                    <option value="8">8 位</option>
+                                    <option value="10" selected>10 位</option>
+                                    <option value="12">12 位</option>
+                                    <option value="16">16 位</option>
+                                    <option value="20">20 位</option>
+                                </select>
+                                <div class="form-text">
+                                    随机代码部分的长度，默认为 10 位
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">预览格式</label>
+                                <div class="form-control-plaintext">
+                                    <code id="preview-format">请输入前缀</code>
+                                </div>
+                                <div class="form-text">
+                                    最终生成的卡密格式预览
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <a href="{{ url_for('admin.index') }}" class="btn btn-secondary">
+                                    <i class="bi bi-arrow-left"></i> 返回列表
+                                </a>
+                                <button type="submit" class="btn btn-success" id="generate-btn">
+                                    <i class="bi bi-plus-circle"></i> 开始生成
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 生成进度 -->
+        <div class="card mt-4" id="progress-card" style="display: none;">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-hourglass-split"></i> 生成进度
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="progress" role="progressbar" style="height: 20px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         id="progress-bar" 
+                         style="width: 0%">
+                        0%
+                    </div>
+                </div>
+                <div class="mt-2 text-center">
+                    <small class="text-muted" id="progress-text">准备生成...</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 使用说明 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-question-circle"></i> 使用说明
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">前缀规则</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="bi bi-check-circle text-success"></i> 只能包含字母、数字、下划线和短横线</li>
+                            <li><i class="bi bi-check-circle text-success"></i> 长度限制为 1-16 个字符</li>
+                            <li><i class="bi bi-check-circle text-success"></i> 建议使用有意义的名称，如 VIP、PREMIUM</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary">生成规则</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="bi bi-check-circle text-success"></i> 系统会自动检查重复，确保唯一性</li>
+                            <li><i class="bi bi-check-circle text-success"></i> 随机代码使用大写字母和数字</li>
+                            <li><i class="bi bi-check-circle text-success"></i> 生成失败会自动重试</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-12">
+                        <h6 class="text-primary">示例格式</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>前缀</th>
+                                        <th>代码长度</th>
+                                        <th>生成示例</th>
+                                        <th>适用场景</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>VIP</code></td>
+                                        <td>10</td>
+                                        <td><code>VIP-ABCD123456</code></td>
+                                        <td>VIP 会员卡密</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>PREMIUM</code></td>
+                                        <td>12</td>
+                                        <td><code>PREMIUM-ABCD12345678</code></td>
+                                        <td>高级会员卡密</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>BASIC</code></td>
+                                        <td>8</td>
+                                        <td><code>BASIC-ABCD1234</code></td>
+                                        <td>基础版卡密</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const prefixInput = document.getElementById('prefix');
+    const codeLengthSelect = document.getElementById('code_length');
+    const previewFormat = document.getElementById('preview-format');
+    const generateForm = document.getElementById('generate-form');
+    const generateBtn = document.getElementById('generate-btn');
+    const progressCard = document.getElementById('progress-card');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    
+    // 更新预览格式
+    function updatePreview() {
+        const prefix = prefixInput.value.trim();
+        const codeLength = parseInt(codeLengthSelect.value);
+        
+        if (prefix) {
+            const exampleCode = 'X'.repeat(codeLength);
+            previewFormat.textContent = `${prefix}-${exampleCode}`;
+        } else {
+            previewFormat.textContent = '请输入前缀';
+        }
+    }
+    
+    // 绑定事件
+    prefixInput.addEventListener('input', updatePreview);
+    codeLengthSelect.addEventListener('change', updatePreview);
+    
+    // 表单提交处理
+    generateForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(generateForm);
+        const count = parseInt(formData.get('count'));
+        
+        if (count > 1000) {
+            if (!confirm(`您要生成 ${count} 个卡密，这可能需要一些时间。确定继续吗？`)) {
+                return;
+            }
+        }
+        
+        // 显示进度
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 生成中...';
+        progressCard.style.display = 'block';
+        
+        // 模拟进度更新
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 20;
+            if (progress > 90) progress = 90;
+            
+            progressBar.style.width = progress + '%';
+            progressBar.textContent = Math.round(progress) + '%';
+            progressText.textContent = `正在生成卡密... ${Math.round(progress)}%`;
+        }, 500);
+        
+        // 提交表单
+        fetch(generateForm.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+            progressBar.textContent = '100%';
+            progressText.textContent = '生成完成！';
+            
+            setTimeout(() => {
+                window.location.href = '/admin/';
+            }, 1000);
+        })
+        .catch(error => {
+            clearInterval(progressInterval);
+            console.error('Error:', error);
+            
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<i class="bi bi-plus-circle"></i> 开始生成';
+            progressCard.style.display = 'none';
+            
+            alert('生成失败，请重试');
+        });
+    });
+    
+    // 初始化预览
+    updatePreview();
+});
+</script>
+{% endblock %}

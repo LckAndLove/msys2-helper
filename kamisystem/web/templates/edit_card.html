@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}编辑卡密 - 卡密授权管理系统{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-pencil"></i> 编辑卡密
+                </h5>
+            </div>
+            
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="prefix" class="form-label">
+                                    卡密前缀 <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="prefix" 
+                                       name="prefix" 
+                                       value="{{ card.prefix }}"
+                                       required
+                                       maxlength="16"
+                                       pattern="[A-Za-z0-9_-]+"
+                                       title="只能包含字母、数字、下划线和短横线">
+                                <div class="form-text">
+                                    修改前缀会自动更新完整卡密代码
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="status" class="form-label">
+                                    卡密状态 <span class="text-danger">*</span>
+                                </label>
+                                <select class="form-select" id="status" name="status" required>
+                                    <option value="unused" {% if card.status.value == 'unused' %}selected{% endif %}>
+                                        未使用
+                                    </option>
+                                    <option value="active" {% if card.status.value == 'active' %}selected{% endif %}>
+                                        已激活
+                                    </option>
+                                    <option value="expired" {% if card.status.value == 'expired' %}selected{% endif %}>
+                                        已过期
+                                    </option>
+                                </select>
+                                <div class="form-text">
+                                    谨慎修改状态，可能影响用户使用
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">随机代码</label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       value="{{ card.code }}"
+                                       readonly>
+                                <div class="form-text">
+                                    随机代码部分不可修改
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">完整代码</label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="full_code_preview"
+                                       value="{{ card.full_code }}"
+                                       readonly>
+                                <div class="form-text">
+                                    完整卡密代码，自动生成
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">使用时间</label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       value="{% if card.used_at %}{{ card.used_at | shanghai_time }}{% else %}未使用{% endif %}"
+                                       readonly>
+                                <div class="form-text">
+                                    首次使用时间，系统自动记录
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">过期时间</label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       value="{% if card.expire_at %}{{ card.expire_at | shanghai_time }}{% else %}未设置{% endif %}"
+                                       readonly>
+                                <div class="form-text">
+                                    激活后 3 小时自动过期
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">绑定机器码</label>
+                                <textarea class="form-control" 
+                                          rows="3" 
+                                          readonly>{% if card.machine_code %}{{ card.machine_code }}{% else %}未绑定{% endif %}</textarea>
+                                <div class="form-text">
+                                    激活时绑定的机器码，用于验证设备
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">创建时间</label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       value="{{ card.created_at | shanghai_time }}"
+                                       readonly>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <strong>注意：</strong>
+                                <ul class="mb-0">
+                                    <li>修改前缀会影响卡密的完整代码</li>
+                                    <li>将状态从"已激活"改为"未使用"可能导致用户重复激活</li>
+                                    <li>建议谨慎修改已使用的卡密状态</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <a href="{{ url_for('admin.index') }}" class="btn btn-secondary">
+                                    <i class="bi bi-arrow-left"></i> 返回列表
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-circle"></i> 保存修改
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 操作历史 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-clock-history"></i> 卡密信息
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">基本信息</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>ID:</strong> {{ card.id }}</li>
+                            <li><strong>前缀:</strong> <span class="badge bg-secondary">{{ card.prefix }}</span></li>
+                            <li><strong>状态:</strong> 
+                                <span class="badge bg-{{ card.get_status_color(card.status) }}">
+                                    {{ card.get_status_display(card.status) }}
+                                </span>
+                            </li>
+                            <li><strong>创建时间:</strong> {{ card.created_at | shanghai_time }}</li>
+                            <li><strong>更新时间:</strong> {{ card.updated_at | shanghai_time }}</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary">使用信息</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>使用状态:</strong> 
+                                {% if card.used_at %}
+                                    <span class="text-success">已使用</span>
+                                {% else %}
+                                    <span class="text-muted">未使用</span>
+                                {% endif %}
+                            </li>
+                            {% if card.used_at %}
+                            <li><strong>首次使用:</strong> {{ card.used_at | shanghai_time }}</li>
+                            {% endif %}
+                            {% if card.expire_at %}
+                            <li><strong>过期时间:</strong> {{ card.expire_at | shanghai_time }}</li>
+                            <li><strong>剩余时间:</strong> 
+                                {% if card.is_expired() %}
+                                    <span class="text-danger">已过期</span>
+                                {% else %}
+                                    <span class="text-success">有效</span>
+                                {% endif %}
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const prefixInput = document.getElementById('prefix');
+    const fullCodePreview = document.getElementById('full_code_preview');
+    const originalCode = '{{ card.code }}';
+    
+    // 更新完整代码预览
+    function updateFullCodePreview() {
+        const prefix = prefixInput.value.trim();
+        if (prefix) {
+            fullCodePreview.value = `${prefix}-${originalCode}`;
+        } else {
+            fullCodePreview.value = originalCode;
+        }
+    }
+    
+    // 绑定事件
+    prefixInput.addEventListener('input', updateFullCodePreview);
+    
+    // 初始化
+    updateFullCodePreview();
+});
+</script>
+{% endblock %}

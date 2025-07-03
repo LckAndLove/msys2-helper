@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}欢迎 - 卡密授权管理系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="text-center mb-5">
+            <h1 class="display-4 text-primary">
+                <i class="bi bi-shield-lock"></i> 
+                卡密授权管理系统
+            </h1>
+            <p class="lead text-muted">
+                基于 Python + Flask + MySQL 的卡密授权服务系统
+            </p>
+        </div>
+        
+        <div class="row g-4 mb-5">
+            <div class="col-md-6">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="bi bi-list-ul text-primary" style="font-size: 3rem;"></i>
+                        </div>
+                        <h5 class="card-title">卡密管理</h5>
+                        <p class="card-text">
+                            查看、编辑、删除卡密，支持状态筛选和搜索功能
+                        </p>
+                        <a href="{{ url_for('admin.index') }}" class="btn btn-primary">
+                            <i class="bi bi-arrow-right"></i> 进入管理
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="bi bi-plus-circle text-success" style="font-size: 3rem;"></i>
+                        </div>
+                        <h5 class="card-title">批量生成</h5>
+                        <p class="card-text">
+                            批量生成卡密，支持自定义前缀、数量和代码长度
+                        </p>
+                        <a href="{{ url_for('admin.generate_page') }}" class="btn btn-success">
+                            <i class="bi bi-arrow-right"></i> 开始生成
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-info-circle"></i> 系统特性
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                <strong>卡密验证 API</strong> - 绑定机器码和有效期控制
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                <strong>Web 管理后台</strong> - 完整的增删改查功能
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                <strong>批量操作</strong> - 批量生成和导出功能
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                <strong>状态管理</strong> - 未使用/已激活/已过期状态
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                <strong>容器化部署</strong> - Docker + MySQL 一键部署
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                <strong>自动过期</strong> - 定时清理过期卡密
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-5">
+            <h4>API 接口示例</h4>
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">POST /api/validate</h6>
+                        </div>
+                        <div class="card-body">
+                            <pre class="text-start"><code>{
+  "code": "VIP-ABCD123456",
+  "machine_code": "PC-UUID-123"
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">GET /api/status/{code}</h6>
+                        </div>
+                        <div class="card-body">
+                            <pre class="text-start"><code>{
+  "status": "success",
+  "data": {
+    "status": "active",
+    "remaining_hours": 2.5
+  }
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

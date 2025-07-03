@@ -1,0 +1,1 @@
+pyinstaller --onefile --windowed --icon=msys2.ico --add-data "msys2.ico;." --hidden-import collections.abc --hidden-import traceback install_msys2.py

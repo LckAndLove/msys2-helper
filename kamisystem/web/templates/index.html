@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}卡密管理 - 卡密授权管理系统{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">总计</h5>
+                        <h2 id="total-count">{{ stats.total }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-collection fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">未使用</h5>
+                        <h2 id="unused-count">{{ stats.unused }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-circle fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">已激活</h5>
+                        <h2 id="active-count">{{ stats.active }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-play-circle fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">已过期</h5>
+                        <h2 id="expired-count">{{ stats.expired }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-x-circle fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-list-ul"></i> 卡密管理
+            </h5>
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('admin.generate_page') }}" class="btn btn-success">
+                    <i class="bi bi-plus-circle"></i> 批量生成
+                </a>
+                <a href="{{ url_for('admin.export_cards') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-download"></i> 导出卡密
+                </a>
+                <button type="button" class="btn btn-outline-warning" onclick="cleanupExpired()">
+                    <i class="bi bi-trash"></i> 清理过期
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card-body">
+        <!-- 筛选器 -->
+        <form method="GET" class="row g-3 mb-4">
+            <div class="col-md-3">
+                <label class="form-label">状态筛选</label>
+                <select name="status" class="form-select" onchange="this.form.submit()">
+                    <option value="">全部状态</option>
+                    <option value="unused" {% if current_filters.status == 'unused' %}selected{% endif %}>未使用</option>
+                    <option value="active" {% if current_filters.status == 'active' %}selected{% endif %}>已激活</option>
+                    <option value="expired" {% if current_filters.status == 'expired' %}selected{% endif %}>已过期</option>
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">前缀筛选</label>
+                <select name="prefix" class="form-select" onchange="this.form.submit()">
+                    <option value="">全部前缀</option>
+                    {% for prefix in prefixes %}
+                        <option value="{{ prefix }}" {% if current_filters.prefix == prefix %}selected{% endif %}>
+                            {{ prefix }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-4">
+                <label class="form-label">搜索卡密</label>
+                <div class="input-group">
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="输入卡密代码..." 
+                           value="{{ current_filters.search }}">
+                    <button class="btn btn-outline-secondary" type="submit">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise"></i> 重置
+                    </a>
+                </div>
+            </div>
+        </form>
+        
+        <!-- 卡密列表 -->
+        {% if cards.items %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>前缀</th>
+                            <th>完整代码</th>
+                            <th>状态</th>
+                            <th>使用时间</th>
+                            <th>过期时间</th>
+                            <th>机器码</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for card in cards.items %}
+                            <tr>
+                                <td>{{ card.id }}</td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ card.prefix }}</span>
+                                </td>
+                                <td>
+                                    <code class="text-primary">{{ card.full_code }}</code>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ card.get_status_color(card.status) }}">
+                                        {{ card.get_status_display(card.status) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if card.used_at %}
+                                        <small class="text-muted">
+                                            {{ card.used_at | shanghai_time }}
+                                        </small>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if card.expire_at %}
+                                        <small class="text-muted">
+                                            {{ card.expire_at | shanghai_time }}
+                                        </small>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if card.machine_code %}
+                                        <small class="text-muted">
+                                            {{ card.machine_code[:20] }}...
+                                        </small>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ card.created_at | shanghai_time }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{{ url_for('admin.edit_card', card_id=card.id) }}" 
+                                           class="btn btn-outline-primary" title="编辑">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-outline-danger" 
+                                                onclick="deleteCard({{ card.id }}, '{{ card.full_code }}')" 
+                                                title="删除">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页 -->
+            {% if cards.pages > 1 %}
+                <nav aria-label="卡密列表分页">
+                    <ul class="pagination justify-content-center">
+                        {% if cards.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('admin.index', page=cards.prev_num, 
+                                    status=current_filters.status, prefix=current_filters.prefix, 
+                                    search=current_filters.search) }}">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for page_num in cards.iter_pages() %}
+                            {% if page_num %}
+                                {% if page_num != cards.page %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('admin.index', page=page_num, 
+                                            status=current_filters.status, prefix=current_filters.prefix, 
+                                            search=current_filters.search) }}">
+                                            {{ page_num }}
+                                        </a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ page_num }}</span>
+                                    </li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if cards.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('admin.index', page=cards.next_num, 
+                                    status=current_filters.status, prefix=current_filters.prefix, 
+                                    search=current_filters.search) }}">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-inbox text-muted" style="font-size: 4rem;"></i>
+                <h4 class="text-muted mt-3">暂无卡密数据</h4>
+                <p class="text-muted">请先生成一些卡密</p>
+                <a href="{{ url_for('admin.generate_page') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> 立即生成
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除卡密 <code id="delete-card-code"></code> 吗？</p>
+                <p class="text-danger">此操作不可撤销！</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form id="delete-form" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function deleteCard(cardId, cardCode) {
+    document.getElementById('delete-card-code').textContent = cardCode;
+    document.getElementById('delete-form').action = `/admin/card/${cardId}/delete`;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+function cleanupExpired() {
+    if (confirm('确定要清理所有过期卡密状态吗？')) {
+        fetch('/admin/api/cleanup-expired', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(`成功清理 ${data.updated_count} 个过期卡密`);
+                location.reload();
+            } else {
+                alert('清理失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('清理失败，请重试');
+        });
+    }
+}
+
+// 自动刷新统计数据
+setInterval(() => {
+    fetch('/admin/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('total-count').textContent = data.total;
+            document.getElementById('unused-count').textContent = data.unused;
+            document.getElementById('active-count').textContent = data.active;
+            document.getElementById('expired-count').textContent = data.expired;
+        })
+        .catch(error => console.error('Error:', error));
+}, 30000); // 每30秒刷新一次
+</script>
+{% endblock %}
