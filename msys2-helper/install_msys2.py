@@ -108,8 +108,19 @@ def validate_license(license_key):
             else:
                 return False, result.get('message', '授权失败')
                 
+    except urllib.error.HTTPError as e:
+        # HTTP错误（如404, 403, 500等）
+        try:
+            error_data = json.loads(e.read().decode('utf-8'))
+            return False, error_data.get('message', f'服务器错误: {e.code}')
+        except:
+            return False, f'服务器错误: {e.code} - {e.reason}'
     except urllib.error.URLError as e:
-        return False, f"网络连接失败: {str(e)}"
+        # 网络连接错误
+        if hasattr(e, 'reason'):
+            return False, f"网络连接失败: {e.reason}"
+        else:
+            return False, f"网络连接失败: {str(e)}"
     except json.JSONDecodeError:
         return False, "服务器响应格式错误"
     except Exception as e:
@@ -416,6 +427,75 @@ def run_in_thread(function, status_label):
     thread.daemon = True
     thread.start()
 
+def reset_vscode(status_label):
+    """重置VS Code配置"""
+    try:
+        import shutil
+        import time
+        
+        # VS Code配置路径
+        vscode_config_path = os.path.expanduser(r'~\AppData\Roaming\Code')
+        vscode_extensions_path = os.path.expanduser(r'~\.vscode')
+        
+        # 检查路径是否存在
+        paths_to_remove = []
+        if os.path.exists(vscode_config_path):
+            paths_to_remove.append(('用户配置', vscode_config_path))
+        if os.path.exists(vscode_extensions_path):
+            paths_to_remove.append(('扩展配置', vscode_extensions_path))
+        
+        if not paths_to_remove:
+            update_status(status_label, "未找到VS Code配置文件，可能VS Code未安装或已重置")
+            return True
+        
+        # 创建备份目录
+        backup_dir = os.path.join(os.path.expanduser('~'), 'VSCode_Backup_' + time.strftime('%Y%m%d_%H%M%S'))
+        os.makedirs(backup_dir, exist_ok=True)
+        
+        update_status(status_label, f"正在备份VS Code配置到: {backup_dir}")
+        
+        # 备份现有配置
+        for desc, path in paths_to_remove:
+            if os.path.exists(path):
+                backup_path = os.path.join(backup_dir, os.path.basename(path))
+                update_status(status_label, f"备份{desc}: {os.path.basename(path)}")
+                shutil.copytree(path, backup_path, ignore_errors=True)
+        
+        # 删除VS Code配置
+        for desc, path in paths_to_remove:
+            if os.path.exists(path):
+                update_status(status_label, f"删除{desc}: {path}")
+                shutil.rmtree(path, ignore_errors=True)
+                
+                # 验证删除是否成功
+                if os.path.exists(path):
+                    update_status(status_label, f"警告: {desc}可能未完全删除", True)
+                else:
+                    update_status(status_label, f"✓ {desc}已成功删除")
+        
+        update_status(status_label, f"VS Code重置完成！备份保存在: {backup_dir}")
+        return True
+        
+    except Exception as e:
+        update_status(status_label, f"重置VS Code配置失败: {str(e)}", True)
+        return False
+
+def confirm_vscode_reset():
+    """确认VS Code重置操作"""
+    message = """此操作将会删除以下VS Code配置：
+    
+• 用户设置和首选项
+• 所有已安装的扩展
+• 工作区配置
+• 快捷键设置
+• 主题和颜色配置
+
+操作前会自动备份到桌面的备份文件夹。
+
+是否确定要重置VS Code配置？"""
+    
+    return messagebox.askyesno("确认重置VS Code", message, icon='warning')
+
 def create_gui():
     """创建图形用户界面"""
     global is_authorized
@@ -426,7 +506,7 @@ def create_gui():
     # 创建主窗口
     root = tk.Tk()
     root.title("C++ 安装助手")
-    root.geometry("500x400")
+    root.geometry("520x480")
     root.resizable(False, False)
     
     # 创建样式
@@ -512,6 +592,19 @@ def create_gui():
     install_graphics_btn = ttk.Button(button_frame, text="[步骤 4] 安装图形开发工具",
                                    command=protected_command(lambda: run_in_thread(install_graphics_tools, status_label)))
     install_graphics_btn.pack(fill=tk.X, pady=5)
+    
+    # 添加分隔线
+    separator = ttk.Separator(button_frame, orient='horizontal')
+    separator.pack(fill=tk.X, pady=10)
+    
+    # VS Code重置按钮
+    def reset_vscode_with_confirm():
+        if confirm_vscode_reset():
+            run_in_thread(reset_vscode, status_label)
+    
+    reset_vscode_btn = ttk.Button(button_frame, text="[工具] 重置VS Code配置",
+                                 command=protected_command(reset_vscode_with_confirm))
+    reset_vscode_btn.pack(fill=tk.X, pady=5)
     
     # 启动主循环
     root.mainloop()
