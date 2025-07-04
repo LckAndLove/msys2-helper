@@ -1,14 +1,16 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from models import db, Card, CardStatus, SHANGHAI_TZ
+from models import db, Card, CardStatus, get_current_time, SHANGHAI_TZ
 from routes.api import api
 from routes.admin import admin
 from utils.export_txt import clean_expired_cards
-from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime
 import os
 import logging
-import atexit
 import pytz
+import atexit
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 
 # 配置日志
 logging.basicConfig(
@@ -49,13 +51,10 @@ def create_app():
         """将UTC时间转换为上海时区时间"""
         if dt is None:
             return None
-        try:
-            # 假设输入的是UTC时间
-            utc_dt = dt.replace(tzinfo=pytz.UTC)
-            shanghai_dt = utc_dt.astimezone(SHANGHAI_TZ)
-            return shanghai_dt.strftime('%Y-%m-%d %H:%M:%S')
-        except:
-            return dt.strftime('%Y-%m-%d %H:%M:%S') if dt else None
+        if dt.tzinfo is None:
+            # 假设输入是UTC时间
+            dt = dt.replace(tzinfo=pytz.UTC)
+        return dt.astimezone(SHANGHAI_TZ).strftime('%Y-%m-%d %H:%M:%S')
     
     # 主页路由
     @app.route('/')

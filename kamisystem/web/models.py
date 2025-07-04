@@ -22,6 +22,18 @@ class CardStatus(Enum):
     UNUSED = 'UNUSED'
     ACTIVE = 'ACTIVE'
     EXPIRED = 'EXPIRED'
+    
+    @classmethod
+    def from_string(cls, value):
+        """从字符串创建枚举值"""
+        if isinstance(value, str):
+            value = value.upper()
+            for status in cls:
+                if status.value == value:
+                    return status
+        elif isinstance(value, cls):
+            return value
+        raise ValueError(f"Invalid status value: {value}")
 
 class Card(db.Model):
     __tablename__ = 'cards'
@@ -114,6 +126,9 @@ class Card(db.Model):
     @staticmethod
     def get_status_display(status):
         """获取状态显示文本"""
+        if isinstance(status, str):
+            status = CardStatus.from_string(status)
+        
         status_map = {
             CardStatus.UNUSED: '未使用',
             CardStatus.ACTIVE: '已激活',
@@ -124,6 +139,9 @@ class Card(db.Model):
     @staticmethod
     def get_status_color(status):
         """获取状态颜色"""
+        if isinstance(status, str):
+            status = CardStatus.from_string(status)
+        
         color_map = {
             CardStatus.UNUSED: 'success',
             CardStatus.ACTIVE: 'primary',

@@ -93,9 +93,9 @@
                 <label class="form-label">状态筛选</label>
                 <select name="status" class="form-select" onchange="this.form.submit()">
                     <option value="">全部状态</option>
-                    <option value="unused" {% if current_filters.status == 'unused' %}selected{% endif %}>未使用</option>
-                    <option value="active" {% if current_filters.status == 'active' %}selected{% endif %}>已激活</option>
-                    <option value="expired" {% if current_filters.status == 'expired' %}selected{% endif %}>已过期</option>
+                    <option value="UNUSED" {% if current_filters.status == 'UNUSED' %}selected{% endif %}>未使用</option>
+                    <option value="ACTIVE" {% if current_filters.status == 'ACTIVE' %}selected{% endif %}>已激活</option>
+                    <option value="EXPIRED" {% if current_filters.status == 'EXPIRED' %}selected{% endif %}>已过期</option>
                 </select>
             </div>
             

@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file
-from models import db, Card, CardStatus, SHANGHAI_TZ
+from models import db, Card, CardStatus, SHANGHAI_TZ, get_utc_time
 from utils.export_txt import export_unused_cards, generate_cards_batch
 from datetime import datetime
 import os
@@ -35,8 +35,8 @@ def index():
     if search_term:
         query = query.filter(Card.full_code.contains(search_term))
     
-    # 按创建时间倒序排列
-    query = query.order_by(Card.created_at.desc())
+    # 按ID排序
+    query = query.order_by(Card.id)
     
     # 分页
     cards = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -137,21 +137,91 @@ def edit_card(card_id):
     
     if request.method == 'POST':
         try:
-            # 更新卡密信息
-            card.prefix = request.form.get('prefix', '').strip()
-            card.status = CardStatus(request.form.get('status'))
+            # 获取表单数据
+            new_prefix = request.form.get('prefix', '').strip()
+            new_status = request.form.get('status', '').strip()
+            
+            logger.info(f"编辑卡密请求: card_id={card_id}, new_prefix={new_prefix}, new_status={new_status}")
+            
+            # 验证输入
+            if not new_prefix:
+                logger.error("前缀不能为空")
+                flash('前缀不能为空', 'error')
+                return render_template('edit_card.html', card=card)
+            
+            if not new_status:
+                logger.error("状态不能为空")
+                flash('状态不能为空', 'error')
+                return render_template('edit_card.html', card=card)
+            
+            # 验证状态值
+            try:
+                # 验证状态值是否有效
+                valid_statuses = ['UNUSED', 'ACTIVE', 'EXPIRED']
+                if new_status not in valid_statuses:
+                    logger.error(f"无效的状态值: {new_status}")
+                    flash(f'无效的状态值: {new_status}', 'error')
+                    return render_template('edit_card.html', card=card)
+                
+                # 直接使用枚举值
+                if new_status == 'UNUSED':
+                    status_enum = CardStatus.UNUSED
+                elif new_status == 'ACTIVE':
+                    status_enum = CardStatus.ACTIVE
+                elif new_status == 'EXPIRED':
+                    status_enum = CardStatus.EXPIRED
+                else:
+                    raise ValueError(f"未知状态: {new_status}")
+                
+                logger.info(f"状态验证成功: {new_status} -> {status_enum}")
+            except (ValueError, AttributeError) as ve:
+                logger.error(f"状态值转换失败: {new_status}, error: {str(ve)}")
+                flash(f'状态值转换失败: {new_status}', 'error')
+                return render_template('edit_card.html', card=card)
+            
+            # 保存原始值用于日志
+            old_prefix = card.prefix
+            old_status = card.status
+            old_full_code = card.full_code
+            
+            # 更新前缀
+            card.prefix = new_prefix
             
             # 重新生成 full_code
-            card.full_code = f"{card.prefix}-{card.code}"
+            new_full_code = f"{card.prefix}-{card.code}"
             
+            # 检查 full_code 是否重复（如果前缀发生变化）
+            if new_full_code != old_full_code:
+                existing_card = Card.query.filter(
+                    Card.full_code == new_full_code,
+                    Card.id != card.id
+                ).first()
+                
+                if existing_card:
+                    logger.warning(f"卡密代码冲突: {new_full_code} 已存在")
+                    flash('修改后的卡密代码已存在，请更换前缀', 'error')
+                    return render_template('edit_card.html', card=card)
+                
+                card.full_code = new_full_code
+            
+            # 更新状态
+            card.status = status_enum
+            card.updated_at = get_utc_time()
+            
+            logger.info(f"更新卡密: {old_full_code} -> {card.full_code}, 状态: {old_status.value} -> {card.status.value}")
+            
+            # 提交到数据库
             db.session.commit()
+            
             flash('卡密更新成功', 'success')
+            logger.info(f"编辑卡密成功: {card.full_code} -> 状态: {card.status.value}")
             return redirect(url_for('admin.index'))
             
         except Exception as e:
             db.session.rollback()
-            logger.error(f"编辑卡密时发生错误: {str(e)}")
-            flash('更新失败，请重试', 'error')
+            logger.error(f"编辑卡密时发生错误: {str(e)}", exc_info=True)
+            flash(f'更新失败: {str(e)}', 'error')
+            return render_template('edit_card.html', card=card)
     
     return render_template('edit_card.html', card=card)
 

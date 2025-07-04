@@ -20,8 +20,3 @@ CREATE TABLE IF NOT EXISTS cards (
     INDEX idx_expire_at (expire_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='卡密表';
 
--- 插入一些示例数据（可选）
-INSERT INTO cards (prefix, code, full_code, status) VALUES
-('VIP', 'DEMO123456', 'VIP-DEMO123456', 'UNUSED'),
-('PREMIUM', 'TEST789012', 'PREMIUM-TEST789012', 'UNUSED'),
-('BASIC', 'SAMPLE345678', 'BASIC-SAMPLE345678', 'UNUSED');

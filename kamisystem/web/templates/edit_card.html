@@ -41,13 +41,13 @@
                                     卡密状态 <span class="text-danger">*</span>
                                 </label>
                                 <select class="form-select" id="status" name="status" required>
-                                    <option value="unused" {% if card.status.value == 'unused' %}selected{% endif %}>
+                                    <option value="UNUSED" {% if card.status.value == 'UNUSED' %}selected{% endif %}>
                                         未使用
                                     </option>
-                                    <option value="active" {% if card.status.value == 'active' %}selected{% endif %}>
+                                    <option value="ACTIVE" {% if card.status.value == 'ACTIVE' %}selected{% endif %}>
                                         已激活
                                     </option>
-                                    <option value="expired" {% if card.status.value == 'expired' %}selected{% endif %}>
+                                    <option value="EXPIRED" {% if card.status.value == 'EXPIRED' %}selected{% endif %}>
                                         已过期
                                     </option>
                                 </select>
