@@ -9,6 +9,11 @@ import json
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+# 版本信息
+__version__ = "1.0.0"
+__author__ = "lllckkkkkkk"
+__description__ = "MSYS2 C++ 开发环境自动化安装和配置工具"
+
 # 全局变量
 msys2_install_path = ""
 download_url = "https://mirrors.tuna.tsinghua.edu.cn/msys2/distrib/msys2-x86_64-latest.exe"
@@ -343,6 +348,27 @@ def confirm_vscode_reset():
     return messagebox.askyesno("确认重置VS Code", message, icon='warning')
 
 
+def show_about():
+    """显示关于对话框"""
+    about_text = f"""C++ 安装助手 v{__version__}
+
+{__description__}
+
+作者: {__author__}
+
+功能特性:
+• 自动下载和安装 MSYS2
+• 配置环境变量
+• 切换到清华大学镜像源
+• 安装 C++ 开发工具链
+• 安装图形开发库 (Qt6, OpenCV)
+• 生成 VSCode 配置文件
+• 重置 VSCode 配置
+
+© 2025 版权所有"""
+    
+    messagebox.showinfo("关于", about_text)
+
 ######################### pkg-config -> VSCode 配置 相关函数 #########################
 def get_pkg_config_info(packages, status_label):
     """获取 pkg-config 对应包的 cflags 和 libs"""
@@ -430,16 +456,13 @@ def get_gcc_path(libs, status_label):
         raise RuntimeError(f"g++ 未在推断路径找到: {gcc_path}")
 
 def create_c_cpp_properties_json(cflags, gcc_path):
-    include_path = None
+    include_list = ["${workspaceFolder}/**"]
+    
     if cflags:
         for flag in cflags.split():
             if flag.startswith('-I'):
                 include_path = convert_to_windows_path(flag[2:])
-                break
-
-    include_list = ["${workspaceFolder}/**"]
-    if include_path:
-        include_list.append(os.path.join(include_path, '**'))
+                include_list.append(os.path.join(include_path, '**'))
 
     cpp_properties = {
         "configurations": [
@@ -507,8 +530,8 @@ def create_gui():
     
     # 创建主窗口
     root = tk.Tk()
-    root.title("C++ 安装助手")
-    root.geometry("400x600")
+    root.title(f"C++ 安装助手 v{__version__}")
+    root.geometry("400x660")
     root.resizable(False, False)
     
     # 创建样式
@@ -521,7 +544,7 @@ def create_gui():
     main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
     
     # 创建标题
-    title_label = tk.Label(main_frame, text="C++ 安装助手", font=('Arial', 16, 'bold'))
+    title_label = tk.Label(main_frame, text=f"C++ 安装助手 v{__version__}", font=('Arial', 16, 'bold'))
     title_label.pack(pady=10)
     
     # 创建按钮
@@ -618,6 +641,11 @@ def create_gui():
     reset_vscode_btn = ttk.Button(button_frame, text="[工具] 重置VS Code配置",
                                  command=reset_vscode_with_confirm)
     reset_vscode_btn.pack(fill=tk.X, pady=5)
+    
+    # 关于按钮
+    about_btn = ttk.Button(button_frame, text="关于",
+                          command=show_about)
+    about_btn.pack(fill=tk.X, pady=5)
     
     # 启动主循环
     root.mainloop()
