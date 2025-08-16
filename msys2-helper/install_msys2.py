@@ -5,6 +5,7 @@ import winreg
 import subprocess
 import threading
 import urllib.request
+import json
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
@@ -341,6 +342,163 @@ def confirm_vscode_reset():
     
     return messagebox.askyesno("确认重置VS Code", message, icon='warning')
 
+
+######################### pkg-config -> VSCode 配置 相关函数 #########################
+def get_pkg_config_info(packages, status_label):
+    """获取 pkg-config 对应包的 cflags 和 libs"""
+    pkg_info = {}
+    try:
+        update_status(status_label, f"正在运行 pkg-config: {' '.join(packages)}")
+        cflags = subprocess.check_output(['pkg-config', '--cflags'] + packages, universal_newlines=True, stderr=subprocess.STDOUT).strip()
+        libs = subprocess.check_output(['pkg-config', '--libs'] + packages, universal_newlines=True, stderr=subprocess.STDOUT).strip()
+        pkg_info['cflags'] = cflags
+        pkg_info['libs'] = libs
+        update_status(status_label, 'pkg-config 查询完成')
+    except subprocess.CalledProcessError as e:
+        output = getattr(e, 'output', str(e))
+        update_status(status_label, f"pkg-config 失败: {output}", True)
+    except Exception as e:
+        update_status(status_label, f"pkg-config 异常: {e}", True)
+    return pkg_info
+
+def convert_to_windows_path(path):
+    """将 Linux 风格路径转换为 Windows 风格路径，并简化路径"""
+    path = path.replace('/', '\\')
+    return os.path.normpath(path)
+
+def create_task_json(gcc_path, packages, pkg_info):
+    """生成 tasks.json 的 dict 结构"""
+    args = [
+        "-fdiagnostics-color=always",
+        "-g",
+        "${file}",
+        "-o",
+        "${fileDirname}\\${fileBasenameNoExtension}.exe"
+    ]
+
+    added_libs = set()
+    cflags = pkg_info.get('cflags', '')
+    libs = pkg_info.get('libs', '')
+
+    if cflags:
+        for flag in cflags.split():
+            args.append(convert_to_windows_path(flag))
+
+    if libs:
+        for flag in libs.split():
+            if flag.startswith('-l') and flag not in added_libs:
+                args.append(flag)
+                added_libs.add(flag)
+            else:
+                args.append(convert_to_windows_path(flag))
+
+    task = {
+        "version": "2.0.0",
+        "tasks": [
+            {
+                "type": "cppbuild",
+                "label": "C/C++: g++.exe 生成活动文件",
+                "command": gcc_path,
+                "args": args,
+                "options": {"cwd": "${fileDirname}"},
+                "problemMatcher": ["$gcc"],
+                "group": {"kind": "build", "isDefault": True},
+                "detail": "调试器生成的任务。"
+            }
+        ]
+    }
+    return task
+
+def get_gcc_path(libs, status_label):
+    """通过 libs 路径推断 g++ 的路径"""
+    update_status(status_label, "推断 g++ 路径...")
+    lib_path = None
+    for flag in libs.split():
+        if flag.startswith('-L'):
+            lib_path = flag[2:]
+            break
+
+    if not lib_path:
+        raise RuntimeError('未找到 -L 参数中的库路径.')
+
+    bin_dir = os.path.normpath(os.path.join(lib_path, '..', 'bin'))
+    gcc_path = os.path.normpath(os.path.join(bin_dir, 'g++.exe'))
+    if os.path.exists(gcc_path):
+        update_status(status_label, f"找到 g++: {gcc_path}")
+        return gcc_path
+    else:
+        raise RuntimeError(f"g++ 未在推断路径找到: {gcc_path}")
+
+def create_c_cpp_properties_json(cflags, gcc_path):
+    include_path = None
+    if cflags:
+        for flag in cflags.split():
+            if flag.startswith('-I'):
+                include_path = convert_to_windows_path(flag[2:])
+                break
+
+    include_list = ["${workspaceFolder}/**"]
+    if include_path:
+        include_list.append(os.path.join(include_path, '**'))
+
+    cpp_properties = {
+        "configurations": [
+            {
+                "name": "Win32",
+                "includePath": include_list,
+                "defines": ["_DEBUG", "UNICODE", "_UNICODE"],
+                "compilerPath": gcc_path,
+                "cStandard": "c17",
+                "cppStandard": "gnu++17",
+                "intelliSenseMode": "windows-gcc-x64"
+            }
+        ],
+        "version": 4
+    }
+    return cpp_properties
+
+def save_to_tasks_json(task_dict, target_dir, status_label):
+    task_file = os.path.join(target_dir, ".vscode", "tasks.json")
+    try:
+        os.makedirs(os.path.join(target_dir, ".vscode"), exist_ok=True)
+        with open(task_file, 'w', encoding='utf-8') as f:
+            json.dump(task_dict, f, ensure_ascii=False, indent=4)
+        update_status(status_label, f"任务配置已保存到 {task_file}")
+    except Exception as e:
+        update_status(status_label, f"保存 tasks.json 失败: {e}", True)
+
+def save_to_c_cpp_properties_json(cpp_dict, target_dir, status_label):
+    cpp_file = os.path.join(target_dir, ".vscode", "c_cpp_properties.json")
+    try:
+        os.makedirs(os.path.join(target_dir, ".vscode"), exist_ok=True)
+        with open(cpp_file, 'w', encoding='utf-8') as f:
+            json.dump(cpp_dict, f, ensure_ascii=False, indent=4)
+        update_status(status_label, f"c_cpp_properties.json 已保存到 {cpp_file}")
+    except Exception as e:
+        update_status(status_label, f"保存 c_cpp_properties.json 失败: {e}", True)
+
+def generate_vscode_configs(target_dir, packages, status_label):
+    try:
+        update_status(status_label, f"开始为包生成配置: {', '.join(packages)}")
+        pkg_info = get_pkg_config_info(packages, status_label)
+        libs = pkg_info.get('libs', '')
+        cflags = pkg_info.get('cflags', '')
+        if not libs:
+            update_status(status_label, "未获取到 libs 信息，无法继续", True)
+            return False
+        gcc_path = get_gcc_path(libs, status_label)
+        task_dict = create_task_json(gcc_path, packages, pkg_info)
+        cpp_dict = create_c_cpp_properties_json(cflags, gcc_path)
+        save_to_tasks_json(task_dict, target_dir, status_label)
+        save_to_c_cpp_properties_json(cpp_dict, target_dir, status_label)
+        update_status(status_label, "VSCode 配置生成完成")
+        return True
+    except Exception as e:
+        update_status(status_label, f"生成配置失败: {e}", True)
+        return False
+
+######################### 结束 pkg-config 相关函数 #########################
+
 def create_gui():
     """创建图形用户界面"""
     
@@ -350,7 +508,7 @@ def create_gui():
     # 创建主窗口
     root = tk.Tk()
     root.title("C++ 安装助手")
-    root.geometry("400x520")
+    root.geometry("400x600")
     root.resizable(False, False)
     
     # 创建样式
@@ -405,12 +563,58 @@ def create_gui():
     # 添加分隔线
     separator = ttk.Separator(button_frame, orient='horizontal')
     separator.pack(fill=tk.X, pady=10)
-    
+
+    # 生成 VSCode 配置按钮 (来自 TEMP.py 的功能)
+    def open_generate_dialog():
+        dialog = tk.Toplevel(root)
+        dialog.title("生成运行配置")
+        dialog.geometry("420x300")
+        dialog.resizable(False, False)
+
+        ttk.Label(dialog, text="选择目标文件夹：").pack(anchor='w', padx=10, pady=(10,0))
+        target_var = tk.StringVar(value=os.getcwd())
+        entry = ttk.Entry(dialog, textvariable=target_var, width=60)
+        entry.pack(padx=10, pady=5)
+
+        def browse_folder():
+            d = filedialog.askdirectory(title="选择目标文件夹", initialdir=target_var.get())
+            if d:
+                target_var.set(d)
+
+        ttk.Button(dialog, text="浏览...", command=browse_folder).pack(padx=10, pady=5)
+
+        ttk.Label(dialog, text="选择或输入 pkg-config 包（逗号或空格分隔）：").pack(anchor='w', padx=10, pady=(10,0))
+        default_pkgs = 'opencv4 Qt6Concurrent Qt6Core Qt6DBus Qt6Gui Qt6Network Qt6OpenGL Qt6OpenGLWidgets Qt6Platform Qt6PrintSupport Qt6Sql Qt6Test Qt6Widgets Qt6Xml'
+        pkg_var = tk.StringVar(value=default_pkgs)
+        pkg_entry = ttk.Entry(dialog, textvariable=pkg_var, width=60)
+        pkg_entry.pack(padx=10, pady=5)
+
+        def on_generate():
+            target = target_var.get().strip()
+            if not target:
+                messagebox.showerror("错误", "请先选择目标文件夹")
+                return
+            pkgs = [p for p in pkg_var.get().replace(',', ' ').split() if p]
+            if not pkgs:
+                messagebox.showerror("错误", "请至少指定一个 pkg-config 包名")
+                return
+            dialog.destroy()
+            run_in_thread(lambda label: generate_vscode_configs(target, pkgs, label), status_label)
+
+        btn_frame = ttk.Frame(dialog)
+        btn_frame.pack(fill=tk.X, pady=10)
+        ttk.Button(btn_frame, text="生成", command=on_generate).pack(side=tk.RIGHT, padx=10)
+        ttk.Button(btn_frame, text="取消", command=dialog.destroy).pack(side=tk.RIGHT)
+
+    gen_vscode_btn = ttk.Button(button_frame, text="[工具] 生成运行配置",
+                                command=open_generate_dialog)
+    gen_vscode_btn.pack(fill=tk.X, pady=5)
+
     # VS Code重置按钮
     def reset_vscode_with_confirm():
         if confirm_vscode_reset():
             run_in_thread(reset_vscode, status_label)
-    
+
     reset_vscode_btn = ttk.Button(button_frame, text="[工具] 重置VS Code配置",
                                  command=reset_vscode_with_confirm)
     reset_vscode_btn.pack(fill=tk.X, pady=5)
