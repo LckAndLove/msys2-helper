@@ -12,7 +12,7 @@ from tkinter import filedialog, messagebox, ttk
 # 版本信息
 __version__ = "1.0.0"
 __author__ = "lllckkkkkkk"
-__description__ = "MSYS2 C++ 开发环境自动化安装和配置工具"
+__description__ = "C++ 开发环境自动化安装和配置工具"
 
 # 全局变量
 msys2_install_path = ""
@@ -554,14 +554,14 @@ def confirm_vscode_reset():
 
 def show_about():
     """显示关于对话框"""
-    about_text = f"""C++ 安装助手 v{__version__}
+    about_text = f"""环境安装助手 v{__version__}
 
 {__description__}
 
 作者: {__author__}
 
 功能特性:
-• 自动下载和解压 MSYS2
+• 自动下载和解压软件
 • 配置环境变量
 • 切换到清华大学镜像源
 • 安装 C++ 开发工具链
@@ -742,7 +742,7 @@ def create_gui():
 
     # 创建主窗口
     root = tk.Tk()
-    root.title(f"C++ 安装助手 v{__version__}")
+    root.title(f"环境安装助手 v{__version__}")
     root.geometry("400x560")
     root.resizable(False, False)
 
@@ -757,7 +757,7 @@ def create_gui():
 
     # 创建标题
     title_label = tk.Label(
-        main_frame, text=f"C++ 安装助手 v{__version__}", font=('Arial', 16, 'bold'))
+        main_frame, text=f"环境安装助手 v{__version__}", font=('Arial', 16, 'bold'))
     title_label.pack(pady=10)
 
     # 创建按钮
@@ -773,7 +773,7 @@ def create_gui():
     status_label.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
     # 安装MSYS2按钮（合并所有基础步骤）
-    install_msys2_btn = ttk.Button(button_frame, text="[步骤 1] 安装MSYS2环境",
+    install_msys2_btn = ttk.Button(button_frame, text="[步骤 1] 安装必备软件",
                                    command=lambda: run_in_thread(install_msys2_complete, status_label))
     install_msys2_btn.pack(fill=tk.X, pady=5)
 
